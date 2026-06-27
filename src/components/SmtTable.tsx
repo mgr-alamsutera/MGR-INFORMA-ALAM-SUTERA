@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
-  Search, ArrowUpDown, Edit2, 
-  CheckSquare, Square, Trophy, Award, Sparkles, Check, Lock
+  Search, ArrowUpDown, Trophy, Award, Sparkles, Check, Lock, ShieldCheck
 } from 'lucide-react';
 import { SmtMember } from '../types';
 import { formatRupiah } from '../utils/csvParser';
@@ -10,15 +9,12 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface SmtTableProps {
   members: SmtMember[];
-  onSelectMember: (member: SmtMember) => void;
-  onToggleChecklist: (nip: string) => void;
-  onAddSalesQuickly: (nip: string, amount: number) => void;
 }
 
-type FilterType = 'ALL' | 'UNLOCKED' | 'LOCKED' | 'CHECKLIST' | 'OVERRIDE';
+type FilterType = 'ALL' | 'UNLOCKED' | 'LOCKED' | 'CHECKLIST';
 type SortType = 'SALES_DESC' | 'SALES_ASC' | 'NAME_ASC' | 'GOAL_DESC';
 
-export function SmtTable({ members, onSelectMember, onToggleChecklist, onAddSalesQuickly }: SmtTableProps) {
+export function SmtTable({ members }: SmtTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('ALL');
   const [sortBy, setSortBy] = useState<SortType>('SALES_DESC');
@@ -40,8 +36,6 @@ export function SmtTable({ members, onSelectMember, onToggleChecklist, onAddSale
         return !m.isUnlocked;
       case 'CHECKLIST':
         return m.checklistIntime;
-      case 'OVERRIDE':
-        return !!m.isManualOverride;
       case 'ALL':
       default:
         return true;
@@ -137,13 +131,7 @@ export function SmtTable({ members, onSelectMember, onToggleChecklist, onAddSale
           onClick={() => { synth.playClick(); setFilterType('CHECKLIST'); }}
           className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest cursor-pointer transition rounded-sm ${getFilterBadgeClass('CHECKLIST')}`}
         >
-          CHECKLIST ({members.filter(m => m.checklistIntime).length})
-        </button>
-        <button
-          onClick={() => { synth.playClick(); setFilterType('OVERRIDE'); }}
-          className={`px-4 py-2 text-[10px] font-black uppercase tracking-widest cursor-pointer transition rounded-sm ${getFilterBadgeClass('OVERRIDE')}`}
-        >
-          MANUAL ({members.filter(m => m.isManualOverride).length})
+          TEPAT WAKTU ⏱️ ({members.filter(m => m.checklistIntime).length})
         </button>
       </div>
 
@@ -163,11 +151,9 @@ export function SmtTable({ members, onSelectMember, onToggleChecklist, onAddSale
           {/* Table Headers for Desktop */}
           <div className="hidden md:grid md:grid-cols-12 gap-4 px-6 mb-1 text-[11px] font-black uppercase tracking-widest text-slate-500 select-none">
             <div className="col-span-1 text-center">Rank</div>
-            <div className="col-span-4">Sales Consultant Name / NIP</div>
-            <div className="col-span-3 text-right">Current Sales Today</div>
-            <div className="col-span-2 text-center">Progress Target</div>
-            <div className="col-span-1 text-center">Checklist</div>
-            <div className="col-span-1 text-right">Aksi</div>
+            <div className="col-span-5">Nama Sales Consultant / NIP</div>
+            <div className="col-span-3 text-right">Penjualan Hari Ini</div>
+            <div className="col-span-3 text-center">Progress Target</div>
           </div>
 
           <div className="space-y-3">
@@ -217,16 +203,19 @@ export function SmtTable({ members, onSelectMember, onToggleChecklist, onAddSale
                     </div>
 
                     {/* SMT NAME & NIP */}
-                    <div className="col-span-4 space-y-1">
-                      <div className="flex items-center flex-wrap gap-1.5">
+                    <div className="col-span-5 space-y-1">
+                      <div className="flex items-center flex-wrap gap-2">
                         <span className={`font-black uppercase tracking-tight text-lg md:text-xl ${isWinner ? 'text-black' : 'text-white'}`}>
                           {member.nama}
                         </span>
-                        {member.isManualOverride && (
-                          <span className={`text-[9px] px-1 py-0.2 rounded font-black uppercase tracking-wide border ${
-                            isWinner ? 'bg-black text-emerald-400 border-black' : 'bg-red-950 text-red-400 border-red-800'
+                        
+                        {/* Elegant checklist status label from Sheets */}
+                        {member.checklistIntime && (
+                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-black uppercase tracking-wide border flex items-center gap-0.5 ${
+                            isWinner ? 'bg-black text-emerald-400 border-black' : 'bg-emerald-950 text-emerald-400 border-emerald-800'
                           }`}>
-                            MANUAL
+                            <ShieldCheck className="h-3.5 w-3.5" />
+                            TEPAT WAKTU
                           </span>
                         )}
                       </div>
@@ -251,7 +240,7 @@ export function SmtTable({ members, onSelectMember, onToggleChecklist, onAddSale
                     </div>
 
                     {/* PROGRESS BAR */}
-                    <div className="col-span-2 space-y-1.5 px-0 md:px-4">
+                    <div className="col-span-3 space-y-1.5 px-0 md:px-4">
                       <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest opacity-80">
                         <span className="md:hidden">Progress</span>
                         <span>{targetPercent.toFixed(0)}% GOAL</span>
@@ -264,80 +253,6 @@ export function SmtTable({ members, onSelectMember, onToggleChecklist, onAddSale
                           transition={{ duration: 0.5, ease: 'easeOut' }}
                         />
                       </div>
-                    </div>
-
-                    {/* CHECKLIST */}
-                    <div className="col-span-1 flex justify-between md:justify-center items-center">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 md:hidden">Checklist Intime</span>
-                      <button
-                        onClick={() => {
-                          synth.playClick();
-                          onToggleChecklist(member.nip);
-                        }}
-                        className={`p-1.5 rounded border-2 transition-all cursor-pointer ${
-                          member.checklistIntime 
-                            ? isWinner 
-                              ? 'bg-black border-black text-emerald-400 hover:opacity-90' 
-                              : 'bg-emerald-500 border-black text-black hover:bg-emerald-400' 
-                            : isWinner 
-                              ? 'border-black text-black/40 hover:text-black' 
-                              : 'border-slate-700 bg-slate-950 text-slate-500 hover:border-white/30 hover:text-white'
-                        }`}
-                        title={member.checklistIntime ? 'Hapus Checklist' : 'Tandai Checklist'}
-                      >
-                        {member.checklistIntime ? (
-                          <CheckSquare className="h-5.5 w-5.5 font-bold" />
-                        ) : (
-                          <Square className="h-5.5 w-5.5" />
-                        )}
-                      </button>
-                    </div>
-
-                    {/* ACTIONS: QUICK ADD & EDIT */}
-                    <div className="col-span-1 flex items-center justify-between md:justify-end gap-2 border-t border-black/10 md:border-t-0 pt-3 md:pt-0">
-                      
-                      {/* Quick Add Buttons */}
-                      <div className="flex gap-1.5">
-                        <button
-                          onClick={() => onAddSalesQuickly(member.nip, 1000000)}
-                          className={`px-2 py-1 text-[10px] font-black border uppercase tracking-wider rounded-sm cursor-pointer hover:scale-105 active:scale-95 transition-all ${
-                            isWinner 
-                              ? 'bg-black text-white border-black' 
-                              : 'bg-[#FFD100] text-black border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                          }`}
-                          title="Tambah +1jt"
-                        >
-                          +1Jt
-                        </button>
-                        <button
-                          onClick={() => onAddSalesQuickly(member.nip, 5000000)}
-                          className={`px-2 py-1 text-[10px] font-black border uppercase tracking-wider rounded-sm cursor-pointer hover:scale-105 active:scale-95 transition-all ${
-                            isWinner 
-                              ? 'bg-black text-white border-black' 
-                              : 'bg-red-600 text-white border-black shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
-                          }`}
-                          title="Tambah +5jt"
-                        >
-                          +5Jt
-                        </button>
-                      </div>
-
-                      {/* Edit Button */}
-                      <button
-                        onClick={() => {
-                          synth.playClick();
-                          onSelectMember(member);
-                        }}
-                        className={`p-2 rounded border-2 transition-all cursor-pointer shadow-sm hover:scale-105 ${
-                          isWinner 
-                            ? 'bg-black border-black text-emerald-400' 
-                            : 'bg-slate-800 border-slate-700 hover:bg-slate-750 text-white'
-                        }`}
-                        title="Edit Detail SMT"
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </button>
-
                     </div>
 
                   </motion.div>

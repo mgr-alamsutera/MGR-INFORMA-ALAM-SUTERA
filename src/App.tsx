@@ -7,15 +7,11 @@ import { parseGoogleSheetsCsv, calculateStats, formatRupiah } from './utils/csvP
 import { synth } from './utils/audio';
 import { StatCard } from './components/StatCard';
 import { SmtTable } from './components/SmtTable';
-import { EditSmtModal } from './components/EditSmtModal';
-import { AddSmtModal } from './components/AddSmtModal';
-import { CopasPanel } from './components/CopasPanel';
 import { 
-  RefreshCw, Clipboard, UserPlus, Database, AlertCircle, 
+  RefreshCw, Database, 
   Check, Volume2, VolumeX, Sparkles, Flame, Moon, Award, 
   ExternalLink, Clock, ShoppingBag
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
 
 // Hardcoded default Sheet URL
 const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1VfrvbgSJyfjWopiUA2EgTffAfsjdZhrAUoS0rT2_bUo/export?format=csv';
@@ -54,10 +50,6 @@ export default function App() {
   });
 
   const [soundEnabled, setSoundEnabled] = useState(true);
-  const [selectedMember, setSelectedMember] = useState<SmtMember | null>(null);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [isCopasOpen, setIsCopasOpen] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Save SMT data to localStorage on change
@@ -108,19 +100,8 @@ export default function App() {
         throw new Error('Sistem gagal membaca baris data di Google Sheet. Periksa format kolom.');
       }
 
-      // Merge fetched members with current manual changes
-      // To preserve manual overrides if the user updated something in the app:
-      const mergedMembers = parsedMembers.map(fetched => {
-        const existing = members.find(m => m.nip === fetched.nip);
-        if (existing && existing.isManualOverride) {
-          // If manually edited, keep the manual state
-          return existing;
-        }
-        return fetched;
-      });
-
-      // Update members state
-      setMembers(mergedMembers);
+      // Update members state directly from Sheets (no manual merging)
+      setMembers(parsedMembers);
       
       // Log success
       const newHistory: SyncHistory = {
@@ -153,83 +134,6 @@ export default function App() {
   // Quick sound generator button (fanfare)
   const triggerBuzzer = () => {
     synth.playSuccess();
-  };
-
-  // Add a new member
-  const handleAddMember = (newMember: SmtMember) => {
-    // Check duplication
-    if (members.some(m => m.nip === newMember.nip)) {
-      alert(`SMT dengan NIP ${newMember.nip} sudah ada di database!`);
-      return;
-    }
-    setMembers(prev => [newMember, ...prev]);
-  };
-
-  // Edit/Update a member
-  const handleUpdateMember = (updated: SmtMember) => {
-    setMembers(prev => prev.map(m => m.nip === updated.nip ? updated : m));
-  };
-
-  // Delete a member from local challenge
-  const handleDeleteMember = (nip: string) => {
-    setMembers(prev => prev.filter(m => m.nip !== nip));
-  };
-
-  // Toggle checklist in-time directly from table row
-  const handleToggleChecklist = (nip: string) => {
-    setMembers(prev => prev.map(m => {
-      if (m.nip === nip) {
-        const updatedVal = !m.checklistIntime;
-        return {
-          ...m,
-          checklistIntime: updatedVal,
-          isManualOverride: true,
-          lastUpdated: new Date().toISOString()
-        };
-      }
-      return m;
-    }));
-  };
-
-  // Quick action: add sales amount directly
-  const handleAddSalesQuickly = (nip: string, amount: number) => {
-    setMembers(prev => prev.map(m => {
-      if (m.nip === nip) {
-        const newSales = m.salesToday + amount;
-        const reachedLimit = !m.isUnlocked && newSales >= 18000000;
-        
-        if (reachedLimit && soundEnabled) {
-          synth.playSuccess();
-        } else {
-          synth.playClick();
-        }
-
-        return {
-          ...m,
-          salesToday: newSales,
-          isUnlocked: newSales >= 18000000,
-          isManualOverride: true,
-          lastUpdated: new Date().toISOString()
-        };
-      }
-      return m;
-    }));
-  };
-
-  // Reset local overrides & restore defaults
-  const handleResetChallenge = () => {
-    if (confirm('Apakah Anda yakin ingin mereset semua perubahan manual dan memuat ulang data asli dari Google Sheets?')) {
-      synth.playLock();
-      localStorage.removeItem('smt_members');
-      setMembers(DEFAULT_SMT_ROSTER);
-      // clear sheet url if custom
-      localStorage.removeItem('smt_sheet_url');
-      setSheetUrl(DEFAULT_SHEET_URL);
-      // reload
-      setTimeout(() => {
-        handleSync();
-      }, 100);
-    }
   };
 
   // Calculations for Stats
@@ -274,7 +178,7 @@ export default function App() {
                   STORE CHALLENGE
                 </span>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-black/80">
-                  ALAM SUTERA MANAGER HUB
+                  ALAM SUTERA HUB
                 </span>
               </div>
               <h1 className="text-xl md:text-2xl font-black uppercase tracking-tight text-black italic">
@@ -335,7 +239,7 @@ export default function App() {
           <StatCard
             title="TOTAL SMT TERLIBAT"
             value={stats.totalSmt}
-            subValue="SMT MINUS 10% HARI INI"
+            subValue="KONSULTAN AKTIF"
             icon={Flame}
             colorClass="border-white/10"
             accentBg="bg-amber-500"
@@ -409,64 +313,13 @@ export default function App() {
             </div>
 
             {/* SMT TABLE LIST */}
-            <SmtTable 
-              members={members}
-              onSelectMember={(m) => {
-                setSelectedMember(m);
-                setIsEditModalOpen(true);
-              }}
-              onToggleChecklist={handleToggleChecklist}
-              onAddSalesQuickly={handleAddSalesQuickly}
-            />
+            <SmtTable members={members} />
 
           </section>
 
-          {/* RIGHT COLUMN: UTILITIES AND DATA OPTIONS (4 Cols) */}
+          {/* RIGHT COLUMN: GOOGLE SHEETS LIVE SYNC PANEL (4 Cols) */}
           <section className="lg:col-span-4 space-y-6">
             
-            {/* PANEL: STORE MANAGER CONTROL HUB */}
-            <div className="bg-slate-900 rounded-lg border-2 border-white/10 p-5 shadow-2xl space-y-4">
-              <h3 className="text-xs font-black text-[#FFD100] uppercase tracking-widest pb-3 border-b-2 border-slate-800 flex items-center gap-1.5">
-                <Database className="h-4.5 w-4.5 stroke-[2.5px]" />
-                STORE MANAGER CONTROL HUB
-              </h3>
-
-              <div className="flex flex-col gap-3.5">
-                {/* Copas Importer Button */}
-                <button
-                  onClick={() => {
-                    synth.playClick();
-                    setIsCopasOpen(true);
-                  }}
-                  className="w-full px-4 py-3 bg-slate-950 hover:bg-slate-900 border-2 border-slate-800 hover:border-[#FFD100] text-xs font-black text-white flex items-center gap-2 cursor-pointer transition-all uppercase tracking-wider rounded-sm shadow-sm"
-                >
-                  <Clipboard className="h-4.5 w-4.5 text-[#FFD100] stroke-[2.5px]" />
-                  Buka COPAS Importer
-                </button>
-
-                {/* Add SMT Member manually */}
-                <button
-                  onClick={() => {
-                    synth.playClick();
-                    setIsAddModalOpen(true);
-                  }}
-                  className="w-full px-4 py-3 bg-slate-950 hover:bg-slate-900 border-2 border-slate-800 hover:border-[#FFD100] text-xs font-black text-white flex items-center gap-2 cursor-pointer transition-all uppercase tracking-wider rounded-sm shadow-sm"
-                >
-                  <UserPlus className="h-4.5 w-4.5 text-emerald-400 stroke-[2.5px]" />
-                  Tambah SMT Manual
-                </button>
-
-                {/* Reset Data */}
-                <button
-                  onClick={handleResetChallenge}
-                  className="w-full px-4 py-2.5 text-xs font-black text-rose-500 hover:bg-rose-950/20 border border-rose-950 rounded-sm flex items-center gap-2 cursor-pointer transition-all uppercase tracking-wider"
-                >
-                  <AlertCircle className="h-4 w-4 text-rose-600" />
-                  Reset Challenge Hari Ini
-                </button>
-              </div>
-            </div>
-
             {/* GOOGLE SHEETS LIVE SYNC PANEL */}
             <div className="bg-slate-900 rounded-lg border-2 border-white/10 p-5 shadow-2xl space-y-4">
               <div className="flex items-center justify-between pb-3 border-b-2 border-slate-800">
@@ -530,8 +383,8 @@ export default function App() {
                     <div className="space-y-2 max-h-36 overflow-y-auto pr-0.5">
                       {syncHistory.map((hist, i) => (
                         <div 
-                          key={i} 
-                          className={`p-2.5 rounded-sm border-2 text-[10px] flex items-start gap-2 ${
+                           key={i} 
+                           className={`p-2.5 rounded-sm border-2 text-[10px] flex items-start gap-2 ${
                             hist.status === 'success' 
                               ? 'bg-slate-950/40 border-emerald-500/30 text-slate-300' 
                               : 'bg-slate-950/40 border-rose-500/30 text-rose-400'
@@ -576,48 +429,11 @@ export default function App() {
         </div>
       </main>
 
-      {/* 4. EXPANDABLE COPAS PANEL DRAWER */}
-      <AnimatePresence>
-        {isCopasOpen && (
-          <div className="fixed inset-0 z-40 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.95, opacity: 0 }}
-              className="w-full max-w-2xl"
-            >
-              <CopasPanel
-                existingMembers={members}
-                onUpdateMembers={(newM) => setMembers(newM)}
-                onClose={() => setIsCopasOpen(false)}
-              />
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-
-      {/* 5. MODALS & OVERLAYS */}
-      <EditSmtModal
-        member={selectedMember}
-        isOpen={isEditModalOpen}
-        onClose={() => {
-          setSelectedMember(null);
-          setIsEditModalOpen(false);
-        }}
-        onSave={handleUpdateMember}
-        onDelete={handleDeleteMember}
-      />
-
-      <AddSmtModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onAdd={handleAddMember}
-      />
-
-      {/* 6. BRUTALIST RUNNING MOTIVATION MARQUEE TAPE */}
+      {/* BRUTALIST RUNNING MOTIVATION MARQUEE TAPE */}
       <footer className="fixed bottom-0 left-0 right-0 h-11 bg-black border-t-2 border-[#FFD100] overflow-hidden flex items-center z-20">
         <div className="relative w-full flex items-center overflow-hidden">
           <div className="animate-marquee whitespace-nowrap text-[#FFD100] font-black text-xs uppercase tracking-widest select-none flex">
+            <span>{marqueeMessage}</span>
             <span>{marqueeMessage}</span>
             <span>{marqueeMessage}</span>
           </div>
