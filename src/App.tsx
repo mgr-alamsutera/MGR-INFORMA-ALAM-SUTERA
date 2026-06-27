@@ -3,7 +3,7 @@ import {
   DEFAULT_SMT_ROSTER 
 } from './data/defaultSmt';
 import { SmtMember, AppStats, SyncHistory } from './types';
-import { parseGoogleSheetsCsv, calculateStats, formatRupiah } from './utils/csvParser';
+import { parseGoogleSheetsCsv, calculateStats, formatRupiah, getTargetLimit } from './utils/csvParser';
 import { synth } from './utils/audio';
 import { StatCard } from './components/StatCard';
 import { SmtTable } from './components/SmtTable';
@@ -131,13 +131,16 @@ export default function App() {
     }
   };
 
-  // Quick sound generator button (fanfare)
-  const triggerBuzzer = () => {
-    synth.playSuccess();
-  };
+  // Dynamic target limit calculated in real-time based on current hour rules
+  const activeTargetLimit = getTargetLimit(currentTime);
 
-  // Calculations for Stats
-  const stats = calculateStats(members);
+  const dynamicMembers = members.map(m => ({
+    ...m,
+    isUnlocked: m.salesToday >= activeTargetLimit
+  }));
+
+  // Calculations for Stats based on dynamically calculated unlock states
+  const stats = calculateStats(dynamicMembers);
 
   // Time formatter
   const formattedTime = currentTime.toLocaleTimeString('id-ID', {
@@ -154,8 +157,8 @@ export default function App() {
     day: 'numeric'
   });
 
-  // Ticker marquee message block
-  const marqueeMessage = `*** SMT UNDERTAKER INFORMA LIVING WORLD ALAM SUTERA *** TANTANGAN PENJUALAN Rp 18.000.000 HARI INI LANGSUNG PULANG *** SIAP PULANG: ${stats.unlockedCount} SMT *** MASIH BERJUANG: ${stats.lockedCount} SMT *** TOTAL PENJUALAN HARI INI: ${formatRupiah(stats.totalSales)} *** SALAM SATU SPIRIT INFORMA FURNITURE *** `;
+  // Ticker marquee message block reflecting updated 16jt / 20jt target rules
+  const marqueeMessage = `*** SMT UNDERTAKER INFORMA LIVING WORLD ALAM SUTERA *** TARGET PULANG: JAM 10.00 - 14.00 MINIMAL ${formatRupiah(16000000)} (16jt) | DI LUAR ITU MINIMAL ${formatRupiah(20000000)} (20jt) *** TARGET AKTIF SAAT INI: ${formatRupiah(activeTargetLimit)} *** SIAP PULANG: ${stats.unlockedCount} SMT *** MASIH BERJUANG: ${stats.lockedCount} SMT *** TOTAL PENJUALAN HARI INI: ${formatRupiah(stats.totalSales)} *** SALAM SATU SPIRIT INFORMA FURNITURE *** `;
 
   return (
     <div className="min-h-screen bg-slate-950 text-white font-sans selection:bg-[#FFD100] selection:text-black pb-24">
@@ -218,15 +221,6 @@ export default function App() {
               >
                 {soundEnabled ? <Volume2 className="h-4 w-4 stroke-[2.5px]" /> : <VolumeX className="h-4 w-4 stroke-[2.5px]" />}
               </button>
-
-              <button
-                onClick={triggerBuzzer}
-                className="px-3 py-1.5 rounded-sm bg-emerald-500 hover:bg-emerald-400 text-black border-2 border-black font-black text-[10px] flex items-center gap-1.5 cursor-pointer uppercase tracking-wider shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] hover:translate-y-[-1px] active:translate-y-[1px] transition-all"
-                title="Mainkan Suara Perayaan SMT"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                BUZZER 🎉
-              </button>
             </div>
           </div>
 
@@ -257,7 +251,7 @@ export default function App() {
           <StatCard
             title="MASIH BERJUANG 🔒"
             value={`${stats.lockedCount} SMT`}
-            subValue="PENJUALAN DI BAWAH 18JT"
+            subValue={`DI BAWAH ${activeTargetLimit / 1000000}JT SEKARANG`}
             icon={Moon}
             colorClass="border-rose-500/30"
             accentBg="bg-rose-600"
@@ -288,12 +282,15 @@ export default function App() {
                 <div className="h-12 w-12 rounded-full bg-black flex items-center justify-center text-2xl shadow-md border-2 border-white shrink-0">
                   🔥
                 </div>
-                <div>
-                  <h4 className="font-black text-lg md:text-xl text-[#FFD100] tracking-wider uppercase italic">
-                    CHALLENGE JUALAN 18JT SEKARANG!
+                <div className="space-y-1">
+                  <h4 className="font-black text-lg md:text-xl text-[#FFD100] tracking-wider uppercase italic flex flex-wrap items-center gap-2">
+                    <span>CHALLENGE JUALAN {activeTargetLimit / 1000000}JT AKTIF!</span>
+                    <span className="bg-black text-[#FFD100] font-black text-[10px] px-2 py-0.5 rounded border border-black font-mono tracking-widest uppercase">
+                      {activeTargetLimit === 16000000 ? "MODE 10:00 - 14:00" : "MODE LEMBUR 20JT"}
+                    </span>
                   </h4>
-                  <p className="text-xs font-bold uppercase tracking-wider text-white/95 mt-1">
-                    SIAPAPUN YANG BISA TEMBUS SALES Rp 18.000.000 HARI INI BOLEH LANGSUNG PULANG! SMT LAIN JANGAN MAU KALAH!
+                  <p className="text-xs font-bold uppercase tracking-wider text-white/95 leading-relaxed">
+                    ATURAN BARU: JAM 10.00 - 14.00 MINIMAL TENTUAN JUALAN 16JT PULANG. LEBIH DARI JAM 14.00 MINIMAL JUALAN 20JT BARU INTIME/PULANG!
                   </p>
                 </div>
               </div>
@@ -313,7 +310,7 @@ export default function App() {
             </div>
 
             {/* SMT TABLE LIST */}
-            <SmtTable members={members} />
+            <SmtTable members={dynamicMembers} targetLimit={activeTargetLimit} />
 
           </section>
 

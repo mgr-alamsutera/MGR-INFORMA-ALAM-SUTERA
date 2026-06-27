@@ -9,12 +9,13 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface SmtTableProps {
   members: SmtMember[];
+  targetLimit: number;
 }
 
 type FilterType = 'ALL' | 'UNLOCKED' | 'LOCKED' | 'CHECKLIST';
 type SortType = 'SALES_DESC' | 'SALES_ASC' | 'NAME_ASC' | 'GOAL_DESC';
 
-export function SmtTable({ members }: SmtTableProps) {
+export function SmtTable({ members, targetLimit }: SmtTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<FilterType>('ALL');
   const [sortBy, setSortBy] = useState<SortType>('SALES_DESC');
@@ -50,8 +51,8 @@ export function SmtTable({ members }: SmtTableProps) {
       case 'NAME_ASC':
         return a.nama.localeCompare(b.nama);
       case 'GOAL_DESC':
-        const aPercent = Math.min((a.salesToday / 18000000) * 100, 100);
-        const bPercent = Math.min((b.salesToday / 18000000) * 100, 100);
+        const aPercent = Math.min((a.salesToday / targetLimit) * 100, 100);
+        const bPercent = Math.min((b.salesToday / targetLimit) * 100, 100);
         return bPercent - aPercent;
       case 'SALES_DESC':
       default:
@@ -65,8 +66,6 @@ export function SmtTable({ members }: SmtTableProps) {
     }
     return 'bg-slate-900 hover:bg-slate-800 text-slate-300 border border-white/10';
   };
-
-  const targetLimit = 18000000;
 
   return (
     <div className="space-y-4 text-white">

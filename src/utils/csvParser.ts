@@ -1,6 +1,22 @@
 import { SmtMember, AppStats } from '../types';
 
 /**
+ * Returns the active target limit in Rupiah based on the current time.
+ * Jam 10.00 - 14.00 (inclusive) -> 16,000,000 (16jt)
+ * Selebihnya / Lewat dari jam 14.00 -> 20,000,000 (20jt)
+ */
+export function getTargetLimit(date: Date = new Date()): number {
+  const hours = date.getHours();
+  const minutes = date.getMinutes();
+  const timeVal = hours * 100 + minutes;
+  
+  if (timeVal >= 1000 && timeVal <= 1400) {
+    return 16000000; // 16jt
+  }
+  return 20000000; // 20jt
+}
+
+/**
  * Parses a standard CSV string from Google Sheets, handling quotes and commas cleanly.
  */
 export function parseGoogleSheetsCsv(csvText: string): SmtMember[] {
@@ -58,6 +74,7 @@ export function parseGoogleSheetsCsv(csvText: string): SmtMember[] {
   const checklistIndex = headers.findIndex(h => h.toUpperCase().includes('CHEKLIST') || h.toUpperCase().includes('CHECKLIST') || h.toUpperCase().includes('INTIME'));
 
   const members: SmtMember[] = [];
+  const currentTarget = getTargetLimit();
 
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
@@ -83,7 +100,7 @@ export function parseGoogleSheetsCsv(csvText: string): SmtMember[] {
       nama,
       salesToday,
       checklistIntime,
-      isUnlocked: salesToday >= 18000000,
+      isUnlocked: salesToday >= currentTarget,
       lastUpdated: new Date().toISOString(),
     });
   }
