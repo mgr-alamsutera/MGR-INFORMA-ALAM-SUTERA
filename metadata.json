@@ -1,0 +1,6 @@
+{
+  "name": "SMT UNDERTAKER",
+  "description": "Sales motivation and leaderboard tracker for Informa Living World Alam Sutera SMTs with daily sales targets.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
